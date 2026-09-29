@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#0b2233"/>
+  <rect x="56" y="104" width="400" height="304" rx="18" fill="#1d8fd6"/>
+  <g stroke-width="7">
+    <line x1="88" y1="104" x2="88" y2="408" stroke="#ea3a36"/>
+    <line x1="424" y1="104" x2="424" y2="408" stroke="#ea3a36"/>
+    <line x1="152" y1="104" x2="152" y2="408" stroke="#ffd23f"/>
+    <line x1="360" y1="104" x2="360" y2="408" stroke="#ffd23f"/>
+    <line x1="256" y1="104" x2="256" y2="408" stroke="#ffffff"/>
+  </g>
+  <path d="M170 318 C215 318 230 214 300 214" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-dasharray="1 26"/>
+  <path d="M292 196 L322 214 L292 232" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="150" cy="318" r="42" fill="#f3f5f7" stroke="#aab6c1" stroke-width="6"/>
+  <text x="150" y="334" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="46" fill="#0e2a66">7</text>
+  <circle cx="352" cy="214" r="42" fill="#173a86" stroke="#0b1f4d" stroke-width="6"/>
+  <text x="352" y="230" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="46" fill="#ffffff">4</text>
+  <circle cx="196" cy="282" r="18" fill="#ffd21f" stroke="#b48600" stroke-width="4"/>
+</svg>
