@@ -26,10 +26,26 @@ document.addEventListener(
 document.addEventListener(
   'touchmove',
   (e) => {
-    if (!(e.target as HTMLElement).closest('.panel-body, .cap-menu, .toolbar, .tl-steps')) e.preventDefault()
+    if (!(e.target as HTMLElement).closest('.panel-body, .cap-menu, .toolbar, .tl-steps, .timeline')) e.preventDefault()
   },
   { passive: false },
 )
+
+// Chrome op iOS: de pagina kan onder de adresbalk schuiven. Houd de app precies
+// zo hoog als het zichtbare deel en zet een verschoven pagina terug op 0.
+function fitViewport() {
+  const vv = window.visualViewport
+  const h = vv ? vv.height : window.innerHeight
+  document.documentElement.style.setProperty('--app-h', `${Math.round(h)}px`)
+  const typing = (document.activeElement as HTMLElement | null)?.closest?.('input, textarea, select')
+  if (!typing && (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop)) window.scrollTo(0, 0)
+}
+fitViewport()
+window.addEventListener('resize', fitViewport)
+window.addEventListener('orientationchange', () => setTimeout(fitViewport, 300))
+window.visualViewport?.addEventListener('resize', fitViewport)
+window.visualViewport?.addEventListener('scroll', fitViewport)
+document.addEventListener('focusout', () => setTimeout(fitViewport, 50))
 
 hydrate().then(() => {
   render(<App />, document.getElementById('app')!)

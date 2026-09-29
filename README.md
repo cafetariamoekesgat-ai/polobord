@@ -8,11 +8,12 @@ Digitaal waterpolo-tactiekbord voor de iPad (landscape, vinger + Apple Pencil). 
 2. **Lang indrukken** op een cap: nummer, naam, rol, bal geven, uitsluiten, verwijderen. **Tik op een medespeler** van de balbezitter = pass.
 3. **Opstellen** (rechts): één tik zet 3-3, 4-2, 6 tegen 5, strafworp enz. neer; kies eerst wie aanvalt.
 4. **+ Stap** legt posities vast; teken zwemlijnen vanaf spelers en passes vanaf de bal, tik weer **+ Stap** en druk op afspelen.
-5. **Presentatie** (knop rechtsonder): alleen veld en afspeelknoppen, dikke lijnen, scherm blijft aan. Het slotje vergrendelt; ontgrendelen = slotje vasthouden.
+5. **Training** (tabblad): rotatietrainer 6-5, "Waar sta jij?"-quiz, scenario-generator, overtal 2-1/3-2/4-3, strafworp en start.
+6. **Presentatie** (knop rechtsonder): alleen veld en afspeelknoppen, dikke lijnen, scherm blijft aan. Het slotje vergrendelt; ontgrendelen = slotje vasthouden.
 
 ## Op de iPad zetten
 
-Safari → open de URL → Deel-knop → *Zet op beginscherm* → *Voeg toe*. Open de app daarna één keer met wifi; vanaf dan werkt hij ook zonder internet.
+Safari (aanbevolen) of Chrome → open de URL → Deel-knop → *Zet op beginscherm* → *Voeg toe*. Open de app daarna één keer met wifi; vanaf dan werkt hij ook zonder internet.
 
 ## Ontwikkelen
 

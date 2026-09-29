@@ -95,7 +95,7 @@ export function Timeline({ compact = false }: { compact?: boolean }) {
             <Icon icon={Repeat as IconNode} size={20} />
           </button>
           <button class="chip small" onClick={() => deleteStep(b.currentStep)} disabled={pb.playing}>
-            Stap wissen
+            Wis stap
           </button>
           <button
             class={`chip small${confirmClear.value ? ' danger' : ''}`}
@@ -109,7 +109,7 @@ export function Timeline({ compact = false }: { compact?: boolean }) {
               clearSteps()
             }}
           >
-            {confirmClear.value ? 'Zeker?' : 'Alle stappen weg'}
+            {confirmClear.value ? 'Zeker?' : 'Wis alle'}
           </button>
         </>
       )}

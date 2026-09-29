@@ -329,6 +329,10 @@ export class BoardEngine implements EngineApi {
     }
   }
 
+  spacing() {
+    return this.r * 2 * 0.9
+  }
+
   /**
    * Haal overlap weg: vaste caps blijven staan, de rest krijgt de dichtstbijzijnde
    * vrije plek bij waar hij hoort (caps zijn op het scherm groter dan een hoofd).
@@ -361,7 +365,7 @@ export class BoardEngine implements EngineApi {
     const min = this.r * 2 * 0.75
     const overlap = ps.some((a, i) => ps.slice(i + 1).some((b) => dist(a, b) < min))
     if (!overlap) return
-    this.separate(new Set(ps.filter((p) => p.team === this.board.attacking || p.keeper).map((p) => p.id)))
+    this.separate(new Set(ps.filter((p) => p.team === this.board.attacking).map((p) => p.id)))
     commit()
   }
 

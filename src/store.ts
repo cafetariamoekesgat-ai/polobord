@@ -131,6 +131,8 @@ export interface EngineApi {
   stop(): void
   seek(t: number): void
   separate(fixedIds?: Set<string>): void
+  /** minimale afstand tussen twee caps op het huidige scherm (meters) */
+  spacing(): number
 }
 let engine: EngineApi | null = null
 export function registerEngine(e: EngineApi) {
@@ -183,6 +185,7 @@ export function redo() {
 
 /** Vervang het hele bord (laden, reset); blijft ongedaan te maken. */
 export function replaceBoard(b: Board) {
+  ghosts.value = []
   undoStack.push(JSON.stringify(doc.board))
   redoStack.length = 0
   doc.board = b
@@ -224,8 +227,8 @@ export function applyFormation(id: string) {
   }
   b.ball = r.ball
   if (r.defense) autoDefense.value = { ...autoDefense.value, mode: r.defense }
-  // caps zijn groter dan een hoofd: aanvallers en keepers blijven staan, verdedigers schuiven
-  engine?.separate(new Set(b.pieces.filter((p) => p.team === b.attacking || p.keeper).map((p) => p.id)))
+  // caps zijn groter dan een hoofd: aanvallers blijven staan, verdedigers (en zo nodig de keeper) schuiven
+  engine?.separate(new Set(b.pieces.filter((p) => p.team === b.attacking).map((p) => p.id)))
   if (b.ball.holder) {
     const h = pieceById(b.ball.holder)
     if (h) b.ball = { x: h.x, y: h.y, holder: h.id }
