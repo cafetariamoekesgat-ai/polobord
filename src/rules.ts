@@ -36,6 +36,8 @@ export const RULES = {
     /** 2–6 m: geel; daarna groen tot de middenlijn */
     yellow: 6,
   },
+  /** gebied rond het doel: 2 m naast elke paal, tot de 2 m-lijn (gestippeld) */
+  goalArea: { besidePost: 2, depth: 2 },
   /** strafworpmarkering */
   penaltyMark: 5,
   /** vrije worp buiten deze lijn mag direct op doel */

@@ -137,6 +137,27 @@ export function drawField(g: SVGGElement, f: FieldSize, theme: FieldTheme, textF
     )
   }
 
+  // gebied rond het doel: gestippelde rechthoek, 2 m naast elke paal tot de 2 m-lijn
+  const ga = RULES.goalArea
+  const gaLo = Math.max(0, W / 2 - RULES.goal.width / 2 - ga.besidePost)
+  const gaHi = Math.min(W, W / 2 + RULES.goal.width / 2 + ga.besidePost)
+  for (const side of [0, 1]) {
+    const gx = side === 0 ? 0 : L
+    const fx = side === 0 ? ga.depth : L - ga.depth
+    el(
+      'path',
+      {
+        d: `M${gx} ${gaLo} L${fx} ${gaLo} L${fx} ${gaHi} L${gx} ${gaHi}`,
+        fill: 'none',
+        stroke: LINE.white,
+        'stroke-width': 0.06,
+        'stroke-dasharray': '0.22 0.2',
+        opacity: 0.85,
+      },
+      g,
+    )
+  }
+
   // doelen
   const gw = RULES.goal.width
   const nd = RULES.goal.netDepth
