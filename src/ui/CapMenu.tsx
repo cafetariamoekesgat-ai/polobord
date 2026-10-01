@@ -1,5 +1,6 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
+import { addQuestionFromBoard } from '../playerQuiz'
 import {
   capMenu,
   doc,
@@ -118,6 +119,13 @@ export function CapMenu() {
           </button>
         ))}
       </div>
+
+      <button class="chip wide" onClick={() => (addQuestionFromBoard(p.id), close())} disabled={excluded}>
+        Quizvraag: waar hoort {p.team === 'white' ? 'wit' : 'blauw'} {p.num}?
+      </button>
+      <button class={`chip wide${p.lefty ? ' on' : ''}`} onClick={() => updatePiece(p.id, { lefty: !p.lefty })}>
+        {p.lefty ? 'Linkshandig ✓' : 'Linkshandig'}
+      </button>
 
       <button
         class={`chip wide${confirmDelete.value ? ' danger' : ' danger-soft'}`}

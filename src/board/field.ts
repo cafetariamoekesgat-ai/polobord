@@ -32,7 +32,7 @@ export const LINE = {
  * Tekent het veld in `g`. `textFix` is de tegen-transformatie voor tekst,
  * zodat labels leesbaar blijven bij draaien/spiegelen.
  */
-export function drawField(g: SVGGElement, f: FieldSize, theme: FieldTheme, textFix: string, waterFill: string | null, tableX = f.length / 2) {
+export function drawField(g: SVGGElement, f: FieldSize, theme: FieldTheme, textFix: string, waterFill: string | null, tableX = f.length / 2, tableLabel = true) {
   g.replaceChildren()
   const L = f.length
   const W = f.width
@@ -180,6 +180,7 @@ export function drawField(g: SVGGElement, f: FieldSize, theme: FieldTheme, textF
   // jurytafel aan de overkant (y < 0)
   const tw = Math.min(6, L * 0.24)
   el('rect', { x: tableX - tw / 2, y: -2.1, width: tw, height: 0.95, rx: 0.12, fill: theme.table }, g)
+  if (!tableLabel) return
   const tt = el('g', { transform: `translate(${tableX} ${-1.62}) ${textFix}` }, g)
   el('text', { 'text-anchor': 'middle', 'dominant-baseline': 'central', fill: '#ffffff', 'font-family': FONT_UI, 'font-size': 0.46, 'font-weight': 700, 'letter-spacing': 0.08 }, tt).textContent =
     'JURYTAFEL'

@@ -28,6 +28,12 @@ export function AnalysisTab() {
           checked={l.goalArea}
           onChange={(v) => set({ goalArea: v })}
         />
+        <Toggle
+          label="Spacing-controle"
+          sub={`oranje stippellijn als twee aanvallers dichter dan ${RULES.spacingMin} m bij elkaar liggen`}
+          checked={l.spacing}
+          onChange={(v) => set({ spacing: v })}
+        />
       </Section>
       <Section title="Meetlint">
         <button class={`big-btn wide${tool.value === 'measure' ? ' primary' : ''}`} onClick={() => (tool.value = tool.value === 'measure' ? 'move' : 'measure')}>

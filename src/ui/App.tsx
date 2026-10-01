@@ -3,7 +3,9 @@ import { Lock, LockOpen, MonitorPlay, PanelRightClose, PanelRightOpen, Timer, X 
 import { useEffect, useRef } from 'preact/hooks'
 import { BoardEngine } from '../board/engine'
 import { startPresentation, stopPresentation } from '../presentation'
-import { clocksOpen, locked, panelOpen, presentation, settings, toast, tool } from '../store'
+import { appMode, clocksOpen, locked, panelOpen, presentation, settings, toast, tool } from '../store'
+import { PlayerQuizCard } from './PlayerQuizCard'
+import { RunnerBar } from './RunnerBar'
 import { CapMenu } from './CapMenu'
 import { Clocks } from './Clocks'
 import { Icon, type IconNode } from './Icon'
@@ -17,16 +19,20 @@ export function App() {
     if (stageRef.current) new BoardEngine(stageRef.current)
   }, [])
 
-  const pres = presentation.value
+  const quiz = appMode.value === 'quiz'
+  // een speler die een gedeelde quiz doet, ziet alleen het bord en de quizkaart
+  const pres = presentation.value || quiz
   const theme = settings.value.theme
   return (
-    <div class={`app theme-${theme}${pres ? ' presenting' : ''}${panelOpen.value && !pres ? ' with-panel' : ''} tool-${tool.value}`}>
+    <div class={`app theme-${theme}${pres ? ' presenting' : ''}${quiz ? ' quiz-mode' : ''}${panelOpen.value && !pres ? ' with-panel' : ''} tool-${tool.value}`}>
       {!pres && <Toolbar />}
       <main class="stage-wrap">
         <div class="stage" ref={stageRef} />
-        {pres && <PresentationBar />}
+        {pres && !quiz && <PresentationBar />}
+        {quiz && <PlayerQuizCard />}
+        {!quiz && <RunnerBar />}
         <Toast />
-        {clocksOpen.value && <Clocks />}
+        {clocksOpen.value && !quiz && <Clocks />}
       </main>
       {!pres && (
         <div class="bottom-bar">
@@ -35,7 +41,7 @@ export function App() {
         </div>
       )}
       {!pres && panelOpen.value && <Panel />}
-      <CapMenu />
+      {!quiz && <CapMenu />}
     </div>
   )
 }

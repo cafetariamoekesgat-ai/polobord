@@ -9,7 +9,7 @@ import type { DefenseMode } from './defense'
 import { applyInstant, computeFormation, defaultPieces, FORMATIONS, newId, reentrySpot } from './formations'
 import { otherTeam } from './geometry'
 import { DEFAULT_FIELD, RULES, type FieldSize } from './rules'
-import type { Board, Frame, LineKind, Piece, Play, Squad, Team, ViewState } from './types'
+import type { Board, Frame, LineKind, Piece, Play, QuizSet, Session, Squad, Team, ViewState } from './types'
 
 // ── Instellingen ───────────────────────────────────────────────────────────
 
@@ -51,13 +51,13 @@ export function updateSettings(patch: Partial<Settings>) {
 // ── UI-signalen ────────────────────────────────────────────────────────────
 
 export type Tool = 'move' | 'draw' | 'erase' | 'measure'
-export type PanelTab = 'opstellen' | 'plays' | 'analyse' | 'training' | 'team' | 'instellingen'
+export type PanelTab = 'opstellen' | 'plays' | 'plan' | 'analyse' | 'training' | 'team' | 'instellingen'
 
 export const tool = signal<Tool>('move')
 export const lineKind = signal<LineKind>('swim')
 export const drawColor = signal<string>('#ffffff')
 export const view = signal<ViewState>({ half: false, rotated: false, mirrored: false })
-export const layers = signal({ passes: false, shot: false, voronoi: false, goalArea: true })
+export const layers = signal({ passes: false, shot: false, voronoi: false, goalArea: true, spacing: true })
 export const autoDefense = signal<{ enabled: boolean; mode: DefenseMode; keeper: boolean }>({ enabled: false, mode: 'man', keeper: true })
 export const presentation = signal(false)
 export const locked = signal(false)
@@ -66,10 +66,22 @@ export const panelTab = signal<PanelTab>('opstellen')
 export const clocksOpen = signal(false)
 export const playback = signal({ playing: false, t: 0, speed: 1, loop: false, scrubbing: false })
 export const ghosts = signal<{ pos: { x: number; y: number }; label?: string; color?: string }[]>([])
+/** hulplijnen (bijv. de doelhoek in de keepertrainer) */
+export const guides = signal<{ a: { x: number; y: number }; b: { x: number; y: number }; color?: string; dash?: boolean }[]>([])
 export const capMenu = signal<{ id: string; x: number; y: number } | null>(null)
 export const currentPlay = signal<{ id: string; name: string; category: string } | null>(null)
 export const plays = signal<Play[]>([])
 export const squads = signal<Squad[]>([])
+export const sessions = signal<Session[]>([])
+export function saveSessions(list: Session[]) {
+  sessions.value = list
+  db.kvSet('sessions', list)
+}
+export const quizSet = signal<QuizSet>({ title: 'Waar sta jij?', questions: [] })
+export function saveQuizSet(q: QuizSet) {
+  quizSet.value = q
+  db.kvSet('playerQuiz', q)
+}
 export const teamSquad = signal<{ white: string | null; blue: string | null }>({ white: null, blue: null })
 
 export interface ToastAction {
@@ -186,6 +198,7 @@ export function redo() {
 /** Vervang het hele bord (laden, reset); blijft ongedaan te maken. */
 export function replaceBoard(b: Board) {
   ghosts.value = []
+  guides.value = []
   undoStack.push(JSON.stringify(doc.board))
   redoStack.length = 0
   doc.board = b
@@ -197,7 +210,15 @@ export function replaceBoard(b: Board) {
 }
 
 let saveTimer = 0
+/** Tijdens de spelersquiz wordt het eigen bord van de speler niet overschreven. */
+export const suspendSave = { on: false }
+/** Alleen deze cap mag bewogen worden (spelersquiz); null = alles mag. */
+export const restrictTo = signal<string | null>(null)
+/** 'quiz' = een speler doet een gedeelde quiz: alleen bord + quizkaart */
+export const appMode = signal<'normal' | 'quiz'>('normal')
+
 function scheduleSave() {
+  if (suspendSave.on) return
   clearTimeout(saveTimer)
   saveTimer = window.setTimeout(() => db.kvSet('board', doc.board).catch(() => {}), 300)
 }
@@ -535,6 +556,8 @@ export function applySquadNames() {
       if (p.team !== team) continue
       const pl = sq?.players.find((x) => x.num === p.num)
       p.name = pl?.name || undefined
+      // linkshandig uit de selectie; zonder selectie blijft de handmatige keuze staan
+      if (sq) p.lefty = !!pl?.lefty
     }
   }
   engine?.piecesChanged()
@@ -612,6 +635,7 @@ export interface ExportFile {
   plays: Play[]
   squads: Squad[]
   settings?: Settings
+  sessions?: Session[]
 }
 
 export function exportJson() {
@@ -622,6 +646,7 @@ export function exportJson() {
     plays: plays.value,
     squads: squads.value,
     settings: settings.value,
+    sessions: sessions.value,
   }
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
   const stamp = new Date().toISOString().slice(0, 10)
@@ -643,6 +668,10 @@ export async function importJson(file: File) {
   }
   for (const p of data.plays) await db.playPut(p)
   for (const q of data.squads ?? []) await db.squadPut(q)
+  if (data.sessions?.length) {
+    const known = new Set(sessions.value.map((x) => x.id))
+    saveSessions([...sessions.value, ...data.sessions.filter((x) => !known.has(x.id))])
+  }
   plays.value = await db.playsAll()
   squads.value = await db.squadsAll()
   showToast(`Geïmporteerd: ${data.plays.length} plays, ${(data.squads ?? []).length} selecties`)
@@ -690,6 +719,10 @@ export async function hydrate() {
     if (v) view.value = v
     const l = await db.kvGet<Partial<typeof layers.value>>('layers')
     if (l) layers.value = { ...layers.value, ...l }
+    const ss = await db.kvGet<Session[]>('sessions')
+    if (ss) sessions.value = ss
+    const qz = await db.kvGet<QuizSet>('playerQuiz')
+    if (qz) quizSet.value = qz
     if (ts) teamSquad.value = ts
     plays.value = ps
     squads.value = qs.sort((a, c) => a.name.localeCompare(c.name))

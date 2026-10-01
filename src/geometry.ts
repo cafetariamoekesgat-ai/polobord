@@ -160,7 +160,12 @@ export function keeperPosition(ball: Vec, goal: Vec, depth: number = RULES.defen
  * Koppel verdedigers aan aanvallers met de kleinste totale afstand
  * (exact, voor kleine aantallen). Surplus blijft ongekoppeld.
  */
-export function assignMarks(defenders: { id: string; pos: Vec }[], attackers: { id: string; pos: Vec }[]): Record<string, string | null> {
+export function assignMarks(
+  defenders: { id: string; pos: Vec }[],
+  attackers: { id: string; pos: Vec }[],
+  /** extra kosten voor een koppeling (bijv. een linkshandige op links) */
+  extra?: (defenderIndex: number, attackerIndex: number) => number,
+): Record<string, string | null> {
   const n = defenders.length
   const m = attackers.length
   let best = Infinity
@@ -181,7 +186,7 @@ export function assignMarks(defenders: { id: string; pos: Vec }[], attackers: { 
       if (used[j]) continue
       used[j] = true
       pick[i] = j
-      rec(i + 1, cost + dist(defenders[i].pos, attackers[j].pos), skipped)
+      rec(i + 1, cost + dist(defenders[i].pos, attackers[j].pos) + (extra ? extra(i, j) : 0), skipped)
       used[j] = false
     }
     if (skipped < skipAllowed) {

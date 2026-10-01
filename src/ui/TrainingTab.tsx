@@ -2,6 +2,7 @@ import { useSignal } from '@preact/signals'
 import { doc, playback, version } from '../store'
 import {
   checkQuiz,
+  newKeeperQuiz,
   LEVELS,
   modeLabel,
   newQuiz,
@@ -20,7 +21,65 @@ import {
   trainer,
   type Level,
 } from '../training'
+import { addQuestions, removeQuestion, setQuestionNote, shareQuiz } from '../playerQuiz'
+import { quizSet, saveQuizSet } from '../store'
+import { randomQuizQuestions } from '../training'
 import { Section, Segmented } from './controls'
+
+/** Trainer stelt de quiz samen die spelers thuis via een link doen. */
+function PlayerQuizSection({ level }: { level: Level }) {
+  const q = quizSet.value
+  const confirmClear = useSignal(false)
+  return (
+    <Section
+      title="Quiz voor spelers"
+      hint="Maak vragen en deel de quiz als link. Spelers doen hem op hun telefoon en sturen hun uitslag terug via WhatsApp. Vraag maken: lang indrukken op een cap → Quizvraag."
+    >
+      <input class="text" value={q.title} onInput={(e) => saveQuizSet({ ...q, title: (e.target as HTMLInputElement).value })} placeholder="Titel van de quiz" />
+      {q.questions.map((qq, i) => {
+        const p = qq.board.pieces.find((x) => x.id === qq.pieceId)
+        return (
+          <div key={i} class="pq-row">
+            <span class="plan-no">{i + 1}</span>
+            <div class="pq-row-main">
+              <small>
+                {p ? `${p.team === 'white' ? 'Wit' : 'Blauw'} ${p.num}${p.keeper ? ' (keeper)' : ''}` : 'speler'} op zijn plek
+              </small>
+              <input class="text" value={qq.note ?? ''} placeholder="Toelichting (optioneel)" onChange={(e) => setQuestionNote(i, (e.target as HTMLInputElement).value)} />
+            </div>
+            <button class="icon-btn" onClick={() => removeQuestion(i)} aria-label={`Vraag ${i + 1} weghalen`}>
+              ✕
+            </button>
+          </div>
+        )
+      })}
+      <div class="btn-grid">
+        <button class="big-btn" onClick={() => addQuestions(randomQuizQuestions(level, 3))}>
+          + 3 willekeurige ({level})
+        </button>
+        <button class="big-btn primary" disabled={!q.questions.length} onClick={() => shareQuiz()}>
+          Deel quiz ({q.questions.length})
+        </button>
+      </div>
+      {q.questions.length > 0 && (
+        <button
+          class={`chip wide${confirmClear.value ? ' danger' : ' danger-soft'}`}
+          onClick={() => {
+            if (!confirmClear.value) {
+              confirmClear.value = true
+              setTimeout(() => (confirmClear.value = false), 3000)
+              return
+            }
+            saveQuizSet({ ...q, questions: [] })
+            confirmClear.value = false
+          }}
+        >
+          {confirmClear.value ? 'Tik nogmaals: alle vragen weg' : 'Alle vragen weghalen'}
+        </button>
+      )}
+    </Section>
+  )
+}
 
 const TEMPOS = [
   { value: '0.5', label: 'Rustig' },
@@ -114,6 +173,48 @@ export function TrainingTab() {
         )}
       </Section>
 
+      <PlayerQuizSection level={t.level} />
+
+      <Section title="Keepertrainer" hint="Een schutter met de bal. Sleep de keeper naar zijn plek: op de bissectrice van de doelhoek, ± 0,6 m voor de doellijn.">
+        <Segmented value={t.level} options={LEVELS} onChange={setLevel} />
+        {t.kind === 'keeper' ? (
+          <div class="train-card">
+            <p>
+              Sleep de <b>keeper</b> naar de plek waar hij de meeste doel afdekt.
+            </p>
+            {t.result && (
+              <p class={`train-score ${t.result.score >= 60 ? 'good' : 'bad'}`}>
+                {t.result.score} punten · {Math.round(t.result.dist * 100)} cm ernaast
+              </p>
+            )}
+            {t.result && <p class="hint">Witte lijnen: de doelhoek naar beide palen. Gele stippellijn: de bissectrice, daar hoort hij op.</p>}
+            <div class="btn-grid">
+              {!t.result ? (
+                <button class="big-btn primary" onClick={checkQuiz}>
+                  Controleer
+                </button>
+              ) : (
+                <button class="big-btn primary" onClick={() => newKeeperQuiz(t.level)}>
+                  Volgende
+                </button>
+              )}
+              <button class="big-btn" onClick={revealQuiz}>
+                Laat zien
+              </button>
+            </div>
+            {t.rounds > 0 && (
+              <p class="hint">
+                {t.rounds} {t.rounds === 1 ? 'ronde' : 'rondes'} · gemiddeld {Math.round(t.total / t.rounds)} punten
+              </p>
+            )}
+          </div>
+        ) : (
+          <button class="big-btn wide primary" onClick={() => newKeeperQuiz(t.level)}>
+            Start de keepertrainer
+          </button>
+        )}
+      </Section>
+
       <Section title="Scenario-generator" hint="Willekeurige bal en aanvallers. De spelers wijzen aan waar de verdediging hoort; tik daarna op Toon.">
         <Segmented value={t.level} options={LEVELS} onChange={setLevel} />
         {t.kind === 'scenario' && (
@@ -161,7 +262,7 @@ export function TrainingTab() {
 
       {t.kind && (
         <button class="chip wide" onClick={stopTrainer}>
-          Stoppen met {t.kind === 'quiz' ? 'de quiz' : 'de scenario-generator'}
+          Stoppen met {t.kind === 'quiz' ? 'de quiz' : t.kind === 'keeper' ? 'de keepertrainer' : 'de scenario-generator'}
         </button>
       )}
     </div>

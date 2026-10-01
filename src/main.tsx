@@ -8,6 +8,7 @@ import { render } from 'preact'
 import { registerSW } from 'virtual:pwa-register'
 import './audio'
 import './presentation'
+import { handleIncoming } from './incoming'
 import { hydrate } from './store'
 import { App } from './ui/App'
 
@@ -49,6 +50,9 @@ document.addEventListener('focusout', () => setTimeout(fitViewport, 50))
 
 hydrate().then(() => {
   render(<App />, document.getElementById('app')!)
+  // gedeelde play of quiz in de link? (na de eerste weergave, als het bord er staat)
+  setTimeout(handleIncoming, 50)
 })
+window.addEventListener('hashchange', () => handleIncoming())
 
 registerSW({ immediate: true })

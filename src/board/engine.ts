@@ -20,6 +20,7 @@ import {
   doc,
   drawColor,
   ghosts,
+  guides,
   isExcluded,
   layers,
   lineKind,
@@ -27,6 +28,7 @@ import {
   playback,
   presentation,
   registerEngine,
+  restrictTo,
   settings,
   shareOrDownload,
   tool,
@@ -64,7 +66,9 @@ export class BoardEngine implements EngineApi {
   private gShot: SVGGElement
   private gGhost: SVGGElement
   private gRule: SVGGElement
+  private gSpacing: SVGGElement
   private lastFoulKey = ''
+  private lastSpacingKey = ''
   private gPieces: SVGGElement
   private gBall: SVGGElement
   private gLive: SVGGElement
@@ -92,7 +96,7 @@ export class BoardEngine implements EngineApi {
   r = 0.6
   ppm = 40
   private textFix = ''
-  private matrix = { sx: 1, sy: 1, e: 0, f: 0 }
+  private matrix = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }
   private vb = { x: 0, y: 0, w: 1, h: 1 }
 
   constructor(private stage: HTMLElement) {
@@ -112,6 +116,7 @@ export class BoardEngine implements EngineApi {
     this.gAnalysis = el('g', {}, this.world)
     this.gShot = el('g', {}, this.world)
     this.gRule = el('g', {}, this.world)
+    this.gSpacing = el('g', {}, this.world)
     this.gGhost = el('g', {}, this.world)
     this.gPieces = el('g', {}, this.world)
     this.gBall = el('g', {}, this.world)
@@ -159,7 +164,7 @@ export class BoardEngine implements EngineApi {
       this.gMeasure.replaceChildren()
     })
     effect(() => {
-      this.drawGhosts(ghosts.value)
+      this.drawGhosts(ghosts.value, guides.value)
     })
     effect(() => {
       const pb = playback.value
@@ -177,20 +182,55 @@ export class BoardEngine implements EngineApi {
 
   // ── Layout en weergave ───────────────────────────────────────────────────
 
+  /** Half bad op een liggend scherm: een kwartslag draaien, doel boven. */
+  private quarterTurn = false
+
   private computeView() {
     const { length: L, width: W } = this.board.field
     const vw = view.value
-    let sx = 1
-    let sy = 1
-    if (vw.rotated) {
-      sx = -sx
-      sy = -sy
+    const sw = this.stage.clientWidth
+    const sh = this.stage.clientHeight
+    // half bad: draai een kwartslag als het veld daar groter door wordt
+    if (vw.half && sw > 0 && sh > 0) {
+      const along = L / 2 + 0.9 + MARGIN.right
+      const across = W + MARGIN.top + MARGIN.bottom
+      const upright = Math.min(sw / along, sh / across)
+      const turned = Math.min(sw / across, sh / along)
+      this.quarterTurn = turned > upright * 1.03
+    } else this.quarterTurn = false
+    // lineaire deel [a c; b d] (SVG-volgorde), eerst de kwartslag, dan draaien/spiegelen
+    let a = 1
+    let b = 0
+    let c = 0
+    let d = 1
+    if (this.quarterTurn) {
+      // aanvalsrichting naar boven: wit (+x) → (x, y) ↦ (y, −x); blauw (−x) → (−y, x)
+      const s = this.board.attacking === 'white' ? 1 : -1
+      a = 0
+      b = -s
+      c = s
+      d = 0
     }
-    if (vw.mirrored) sx = -sx
+    let ux = 1
+    let uy = 1
+    if (vw.rotated) {
+      ux = -ux
+      uy = -uy
+    }
+    if (vw.mirrored) ux = -ux
+    a *= ux
+    c *= ux
+    b *= uy
+    d *= uy
     const cx = L / 2
     const cy = W / 2
-    this.matrix = { sx, sy, e: cx - sx * cx, f: cy - sy * cy }
-    this.textFix = sx === 1 && sy === 1 ? '' : `scale(${sx} ${sy})`
+    // middelpunt van het veld blijft op zijn plek
+    const e = cx - (a * cx + c * cy)
+    const f = cy - (b * cx + d * cy)
+    this.matrix = { a, b, c, d, e, f }
+    // tekst rechtop houden: de inverse van het lineaire deel (orthogonaal, dus de getransponeerde)
+    const identity = a === 1 && b === 0 && c === 0 && d === 1
+    this.textFix = identity ? '' : `matrix(${a} ${c} ${b} ${d} 0 0)`
     let x0 = -MARGIN.left
     let x1 = L + MARGIN.right
     if (vw.half) {
@@ -203,8 +243,7 @@ export class BoardEngine implements EngineApi {
     const xs = pts.map((p) => p.x)
     const ys = pts.map((p) => p.y)
     this.vb = { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }
-    const { sx: a, sy: d, e, f } = this.matrix
-    this.world.setAttribute('transform', `matrix(${a} 0 0 ${d} ${f2(e)} ${f2(f)})`)
+    this.world.setAttribute('transform', `matrix(${a} ${b} ${c} ${d} ${f2(e)} ${f2(f)})`)
     this.svg.setAttribute('viewBox', `${f2(this.vb.x)} ${f2(this.vb.y)} ${f2(this.vb.w)} ${f2(this.vb.h)}`)
   }
 
@@ -216,21 +255,28 @@ export class BoardEngine implements EngineApi {
   }
 
   private toView(p: Vec): Vec {
-    const { sx, sy, e, f } = this.matrix
-    return v(sx * p.x + e, sy * p.y + f)
+    const { a, b, c, d, e, f } = this.matrix
+    return v(a * p.x + c * p.y + e, b * p.x + d * p.y + f)
   }
 
   layout() {
     const w = this.stage.clientWidth
     const h = this.stage.clientHeight
     if (!w || !h) return
+    const turned = this.quarterTurn
+    const fix = this.textFix
     this.computeView()
+    if (turned !== this.quarterTurn || fix !== this.textFix) {
+      // tekst (nummers, labels, jurytafel) moet opnieuw rechtop gezet worden
+      queueMicrotask(() => this.reload())
+    }
     const scale = Math.min(w / this.vb.w, h / this.vb.h)
     const sw = this.vb.w * scale
     const sh = this.vb.h * scale
     Object.assign(this.sheet.style, { width: `${sw}px`, height: `${sh}px`, left: `${(w - sw) / 2}px`, top: `${(h - sh) / 2}px` })
     this.ppm = scale
-    const r = clamp(RULES.capMinScreenRadius / scale, RULES.capRadiusMin, 1.1)
+    const minPx = Math.min(w, h) < 500 ? RULES.capMinScreenRadiusPhone : RULES.capMinScreenRadius
+    const r = clamp(minPx / scale, RULES.capRadiusMin, 1.1)
     const rChanged = Math.abs(r - this.r) > 1e-3
     this.r = r
     // water-laag precies onder het water
@@ -253,7 +299,7 @@ export class BoardEngine implements EngineApi {
     this.flight = null
     this.computeView()
     const theme = FIELD_THEMES[settings.value.theme]
-    drawField(this.gField, this.board.field, theme, this.textFix, null, this.tableX())
+    drawField(this.gField, this.board.field, theme, this.textFix, null, this.tableX(), !this.quarterTurn)
     this.water.style.background = theme.water
     this.layout()
     this.piecesChanged()
@@ -268,7 +314,7 @@ export class BoardEngine implements EngineApi {
     const s = settings.value
     const pres = presentation.value
     const theme = FIELD_THEMES[s.theme]
-    drawField(this.gField, this.board.field, theme, this.textFix, null, this.tableX())
+    drawField(this.gField, this.board.field, theme, this.textFix, null, this.tableX(), !this.quarterTurn)
     this.water.style.background = theme.water
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     this.water.classList.toggle('still', !s.caustics || pres || !!reduce)
@@ -498,6 +544,7 @@ export class BoardEngine implements EngineApi {
     }
     this.ballView.place(this.ballDisp.x, this.ballDisp.y, this.r * 0.44, lift)
     this.checkGoalArea()
+    this.checkSpacing()
 
     // analyse-lagen: bij beweging max ~30× per seconde
     const anyLayer = layers.value.passes || layers.value.shot || layers.value.voronoi
@@ -546,6 +593,45 @@ export class BoardEngine implements EngineApi {
       const g = attackGoal(t, f)
       const x0 = g.x === 0 ? 0 : g.x - ga.depth
       el('rect', { x: x0, y: g.y - half, width: ga.depth, height: half * 2, fill: 'rgba(234,58,54,0.28)', stroke: '#ea3a36', 'stroke-width': 0.1 }, this.gRule)
+    }
+  }
+
+  /**
+   * Spacing: aanvallers (team dat aanvalt) dichter dan RULES.spacingMin bij
+   * elkaar krijgen een oranje stippellijn met de afstand erbij.
+   */
+  private checkSpacing() {
+    const b = this.board
+    const pairs: [Vec, Vec, number][] = []
+    let key = ''
+    if (layers.value.spacing) {
+      const ps = b.pieces.filter((p) => p.team === b.attacking && !p.keeper && this.inPlay(p.id))
+      for (let i = 0; i < ps.length; i++) {
+        for (let j = i + 1; j < ps.length; j++) {
+          const a = this.disp.get(ps[i].id)
+          const c = this.disp.get(ps[j].id)
+          if (!a || !c) continue
+          const d = dist(a, c)
+          if (d < RULES.spacingMin) {
+            pairs.push([a, c, d])
+            key += `${ps[i].id}-${ps[j].id}:${d.toFixed(1)}|${a.x.toFixed(1)},${a.y.toFixed(1)}|`
+          }
+        }
+      }
+    }
+    if (key === this.lastSpacingKey) return
+    this.lastSpacingKey = key
+    const g = this.gSpacing
+    g.replaceChildren()
+    const mul = this.strokeMul
+    for (const [a, c, d] of pairs) {
+      el('line', { x1: f2(a.x), y1: f2(a.y), x2: f2(c.x), y2: f2(c.y), stroke: '#ff9d00', 'stroke-width': 0.09 * mul, 'stroke-dasharray': '0.2 0.14', 'stroke-linecap': 'round' }, g)
+      const mid = v((a.x + c.x) / 2, (a.y + c.y) / 2)
+      const tg = el('g', { transform: `translate(${f2(mid.x)} ${f2(mid.y)}) ${this.textFix}` }, g)
+      const fs = 0.42 * mul
+      el('rect', { x: -fs * 1.5, y: -fs * 0.65, width: fs * 3, height: fs * 1.3, rx: fs * 0.3, fill: '#ff9d00' }, tg)
+      el('text', { 'text-anchor': 'middle', 'dominant-baseline': 'central', fill: '#1b1200', 'font-family': FONT_NUM, 'font-weight': 700, 'font-size': fs }, tg).textContent =
+        `${d.toFixed(1).replace('.', ',')} m`
     }
   }
 
@@ -799,6 +885,19 @@ export class BoardEngine implements EngineApi {
     const t = tool.value
     const pieceHit = this.hitPiece(w)
     const ballHit = this.hitBall(w, pieceHit)
+    // spelersquiz: alleen de vraag-cap mag bewegen, verder niets (geen lijnen, geen bal)
+    const only = restrictTo.value
+    if (only) {
+      if (pieceHit !== only) return
+      const p = this.board.pieces.find((q) => q.id === only)!
+      try {
+        this.svg.setPointerCapture(e.pointerId)
+      } catch {
+        /* pointer al weg */
+      }
+      this.gestures.set(e.pointerId, { kind: 'piece', id: only, off: sub(w, v(p.x, p.y)), sx: e.clientX, sy: e.clientY, t0: performance.now(), moved: false, lp: 0 })
+      return
+    }
     try {
       this.svg.setPointerCapture(e.pointerId)
     } catch {
@@ -1031,6 +1130,7 @@ export class BoardEngine implements EngineApi {
   }
 
   private tapPiece(id: string) {
+    if (restrictTo.value) return
     const b = this.board
     const p = b.pieces.find((q) => q.id === id)
     if (!p || isExcluded(p)) return
@@ -1077,9 +1177,26 @@ export class BoardEngine implements EngineApi {
     el('text', { 'text-anchor': 'middle', 'dominant-baseline': 'central', fill: '#ffffff', 'font-family': FONT_NUM, 'font-weight': 700, 'font-size': fs }, tg).textContent = label
   }
 
-  private drawGhosts(list: { pos: Vec; label?: string; color?: string }[]) {
+  private drawGhosts(list: { pos: Vec; label?: string; color?: string }[], lines: { a: Vec; b: Vec; color?: string; dash?: boolean }[] = []) {
     const g = this.gGhost
     g.replaceChildren()
+    for (const l of lines) {
+      el(
+        'line',
+        {
+          x1: f2(l.a.x),
+          y1: f2(l.a.y),
+          x2: f2(l.b.x),
+          y2: f2(l.b.y),
+          stroke: l.color ?? '#ffffff',
+          'stroke-width': 0.07,
+          'stroke-dasharray': l.dash ? '0.25 0.15' : undefined,
+          'stroke-linecap': 'round',
+          opacity: 0.9,
+        },
+        g,
+      )
+    }
     for (const gh of list) {
       const c = gh.color ?? '#ffd21f'
       el('circle', { cx: f2(gh.pos.x), cy: f2(gh.pos.y), r: this.r * 1.05, fill: c, 'fill-opacity': 0.18, stroke: c, 'stroke-width': 0.09, 'stroke-dasharray': '0.25 0.15' }, g)

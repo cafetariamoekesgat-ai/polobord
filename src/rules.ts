@@ -38,6 +38,8 @@ export const RULES = {
   },
   /** gebied rond het doel: 2 m naast elke paal, tot de 2 m-lijn (gestippeld) */
   goalArea: { besidePost: 2, depth: 2 },
+  /** spacing: aanvallers die dichter bij elkaar liggen, staan elkaar in de weg */
+  spacingMin: 2,
   /** strafworpmarkering */
   penaltyMark: 5,
   /** vrije worp buiten deze lijn mag direct op doel */
@@ -80,6 +82,8 @@ export const RULES = {
   /** kleinste cap-straal in meters; op het scherm minstens 28 pt (56 pt doorsnede) */
   capRadiusMin: 0.45,
   capMinScreenRadius: 28,
+  /** op een telefoon (kleinste schermmaat < 500 pt) met droge vingers mag het kleiner */
+  capMinScreenRadiusPhone: 18,
 } as const
 
 export type Rules = typeof RULES

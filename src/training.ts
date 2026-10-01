@@ -8,8 +8,9 @@
 import { signal } from '@preact/signals'
 import { defenseTargets, keeperTarget, type DefenseMode } from './defense'
 import { applyInstant, computeFormation, FORMATIONS, keeperHome, newId, reentrySpot } from './formations'
-import { attackGoal, clamp, dist, fromAttack, inGoalArea, legalAttackSpot, nearestFreeSpot, toAttack, v } from './geometry'
-import { autoDefense, commit, currentPlay, doc, freshBoard, getEngine, ghosts, isExcluded, playback, replaceBoard, setView, showToast } from './store'
+import { attackGoal, clamp, dist, fromAttack, inGoalArea, keeperPosition, legalAttackSpot, nearestFreeSpot, toAttack, v } from './geometry'
+import { autoDefense, commit, currentPlay, doc, freshBoard, getEngine, ghosts, guides, isExcluded, playback, replaceBoard, setView, showToast } from './store'
+import { RULES } from './rules'
 import type { BallState, Board, Frame, Piece, Stroke, Team, Vec } from './types'
 
 export type Level = 'makkelijk' | 'gemiddeld' | 'moeilijk'
@@ -30,7 +31,7 @@ const MODE_LABEL: Record<DefenseMode, string> = {
 export const modeLabel = (m: DefenseMode) => MODE_LABEL[m]
 
 export interface TrainerState {
-  kind: 'quiz' | 'scenario' | null
+  kind: 'quiz' | 'scenario' | 'keeper' | null
   level: Level
   mode?: DefenseMode
   pieceId?: string
@@ -578,20 +579,34 @@ export function newQuiz(level: Level) {
 
 export function checkQuiz() {
   const t = trainer.value
-  if (t.kind !== 'quiz' || !t.pieceId || !t.ideal || t.result) return
+  if ((t.kind !== 'quiz' && t.kind !== 'keeper') || !t.pieceId || !t.ideal || t.result) return
   const p = doc.board.pieces.find((x) => x.id === t.pieceId)
   if (!p) return
   const d = dist(p, t.ideal)
-  const score = d <= 0.5 ? 100 : Math.max(0, Math.round(100 - (d - 0.5) * 40))
+  // een keeper moet op decimeters goed liggen, een veldspeler op een halve meter
+  const score =
+    t.kind === 'keeper'
+      ? d <= 0.15
+        ? 100
+        : Math.max(0, Math.round(100 - (d - 0.15) * 110))
+      : d <= 0.5
+        ? 100
+        : Math.max(0, Math.round(100 - (d - 0.5) * 40))
+  if (t.kind === 'keeper') {
+    const b = doc.board
+    const h = b.pieces.find((x) => x.id === b.ball.holder)
+    if (h) keeperGuides(v(h.x, h.y), t.ideal)
+  }
   trainer.value = { ...t, result: { score, dist: d }, rounds: t.rounds + 1, total: t.total + score }
   ghosts.value = [{ pos: t.ideal, label: '✓', color: score >= 60 ? '#2fe07a' : '#ffd21f' }]
   const msg = score >= 90 ? 'Precies goed!' : score >= 60 ? 'Bijna.' : 'Kijk waar hij had moeten liggen.'
-  showToast(`${msg} ${d.toFixed(1).replace('.', ',')} m ernaast · ${score} punten`)
+  const off = t.kind === 'keeper' ? `${Math.round(d * 100)} cm` : `${d.toFixed(1).replace('.', ',')} m`
+  showToast(`${msg} ${off} ernaast · ${score} punten`)
 }
 
 export function revealQuiz() {
   const t = trainer.value
-  if (t.kind !== 'quiz' || !t.pieceId || !t.ideal) return
+  if ((t.kind !== 'quiz' && t.kind !== 'keeper') || !t.pieceId || !t.ideal) return
   const p = doc.board.pieces.find((x) => x.id === t.pieceId)
   if (!p) return
   if (!t.result) checkQuiz()
@@ -638,4 +653,96 @@ export function showScenario() {
 export function stopTrainer() {
   trainer.value = { ...trainer.value, kind: null }
   ghosts.value = []
+  guides.value = []
+}
+
+// ── 9. Keepertrainer ──────────────────────────────────────────────────────
+
+/**
+ * Een schutter met de bal; de keeper ligt nog voor het doel. Sleep hem naar
+ * de bissectrice van de doelhoek, ± 0,6 m voor de doellijn.
+ */
+export function newKeeperQuiz(level: Level) {
+  const F = f()
+  const b = emptyBoard()
+  let d: number
+  let s: number
+  if (level === 'makkelijk') {
+    d = rnd(5, 8)
+    s = rnd(-3, 3)
+  } else if (level === 'gemiddeld') {
+    d = rnd(3.5, 8)
+    s = rnd(-6.5, 6.5)
+  } else {
+    d = rnd(2.2, 5)
+    s = pick([-1, 1]) * rnd(4, 7.5)
+  }
+  const shooterPos = fromAttack(A, F, d, s, false)
+  const num = pick([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+  const shooter: Piece = { id: `white-${num}`, team: 'white', num, role: 'none', keeper: false, x: shooterPos.x, y: shooterPos.y }
+  const startPos = fromAttack(A, F, 1.8, 0)
+  const keeper: Piece = { id: 'blue-1', team: 'blue', num: 1, role: 'keeper', keeper: true, x: startPos.x, y: startPos.y }
+  b.pieces = [shooter, keeper]
+  if (level !== 'makkelijk') {
+    // een verdediger die doelzijde ligt: afleiding, de keeper kijkt naar de bal
+    const dp = fromAttack(A, F, Math.max(1.2, d - 1.6), s * 0.85, false)
+    b.pieces.push({ id: 'blue-4', team: 'blue', num: 4, role: 'none', keeper: false, x: dp.x, y: dp.y })
+  }
+  b.ball = { x: shooter.x, y: shooter.y, holder: shooter.id }
+  const ideal = keeperPosition(shooterPos, attackGoal(A, F))
+  const prev = trainer.value
+  start(b)
+  trainer.value = { ...prev, kind: 'keeper', level, pieceId: keeper.id, ideal, result: undefined, mode: undefined }
+}
+
+function keeperGuides(ball: Vec, ideal: Vec) {
+  const F = f()
+  const goal = attackGoal(A, F)
+  const p1 = v(goal.x, goal.y - RULES.goal.width / 2)
+  const p2 = v(goal.x, goal.y + RULES.goal.width / 2)
+  // bissectrice doortrekken tot de doellijn
+  const dir = { x: ideal.x - ball.x, y: ideal.y - ball.y }
+  const t = dir.x === 0 ? 1 : (goal.x - ball.x) / dir.x
+  const end = v(ball.x + dir.x * t, ball.y + dir.y * t)
+  guides.value = [
+    { a: ball, b: p1, color: '#ffffff' },
+    { a: ball, b: p2, color: '#ffffff' },
+    { a: ball, b: end, color: '#ffd21f', dash: true },
+  ]
+}
+
+// ── Ingebouwde oefeningen (voor de trainingsplanner) ─────────────────────
+
+export interface Builtin {
+  id: string
+  label: string
+  group: string
+  run: (speed: number) => void
+}
+
+const LEVEL_NAME: Record<Level, string> = { makkelijk: 'makkelijk', gemiddeld: 'gemiddeld', moeilijk: 'moeilijk' }
+
+export const BUILTINS: Builtin[] = [
+  ...ROTATIONS.map((r) => ({ id: r.id, label: `Rotatie 6-5: ${r.label}`, group: 'Rotatietrainer', run: (s: number) => startRotation(r.id, s) })),
+  ...GOAL_AREA_PLAYS.map((g) => ({ id: g.id, label: `Doelgebied: ${g.label}`, group: 'Doelgebied', run: (s: number) => startGoalAreaPlay(g.id, s) })),
+  ...OVERLOADS.map((o) => ({ id: `ov-${o.id}`, label: `Overtal ${o.label}`, group: 'Overtal', run: (s: number) => startOverload(o.id, s) })),
+  { id: 'penalty', label: 'Strafworp', group: 'Spelhervatting', run: (s) => startPenalty(s) },
+  { id: 'sprint', label: 'Start (sprint)', group: 'Spelhervatting', run: (s) => startSprint(s) },
+  ...LEVELS.flatMap((l) => [
+    { id: `quiz-${l.value}`, label: `Waar sta jij? (${LEVEL_NAME[l.value]})`, group: 'Quiz', run: () => newQuiz(l.value) },
+    { id: `scenario-${l.value}`, label: `Scenario-generator (${LEVEL_NAME[l.value]})`, group: 'Quiz', run: () => newScenario(l.value) },
+    { id: `keeper-${l.value}`, label: `Keepertrainer (${LEVEL_NAME[l.value]})`, group: 'Quiz', run: () => newKeeperQuiz(l.value) },
+  ]),
+]
+
+/** Willekeurige "waar sta jij?"-vragen voor de spelersquiz. */
+export function randomQuizQuestions(level: Level, n: number): { board: Board; pieceId: string }[] {
+  const out: { board: Board; pieceId: string }[] = []
+  for (let i = 0; i < n; i++) {
+    const { b } = randomSituation(level)
+    const candidates = b.pieces.filter((p) => p.team === 'blue' && !p.keeper && !isExcluded(p))
+    const q = pick(candidates)
+    out.push({ board: JSON.parse(JSON.stringify(b)), pieceId: q.id })
+  }
+  return out
 }

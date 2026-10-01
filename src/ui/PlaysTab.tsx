@@ -1,5 +1,6 @@
 import { useSignal } from '@preact/signals'
 import { useRef } from 'preact/hooks'
+import { shareCurrentBoard, sharePlay } from '../incoming'
 import { currentPlay, deletePlay, exportJson, getEngine, importJson, loadPlay, plays, renamePlay, savePlay, showToast } from '../store'
 import { PLAY_CATEGORIES } from '../types'
 import { Section } from './controls'
@@ -72,6 +73,9 @@ export function PlaysTab() {
                     <span>{p.name}</span>
                     <small>{p.board.steps.length ? `${p.board.steps.length} stappen` : 'plaatje'}</small>
                   </button>
+                  <button class="icon-btn" onClick={() => sharePlay(p.board, p.name, p.category)} aria-label="Delen als link" title="Delen als link">
+                    ↗
+                  </button>
                   <button class="icon-btn" onClick={() => (editing.value = p.id)} aria-label="Hernoemen">
                     ✎
                   </button>
@@ -99,7 +103,10 @@ export function PlaysTab() {
         ))}
       </Section>
 
-      <Section title="Delen en bewaren">
+      <Section title="Delen en bewaren" hint="Een link bevat de hele play, met stappen. Spelers openen hem op hun telefoon en zien hem meteen afspelen; ze hebben niets te installeren.">
+        <button class="big-btn wide primary" onClick={() => shareCurrentBoard()}>
+          Deel dit bord als link
+        </button>
         <div class="btn-grid">
           <button
             class="big-btn"

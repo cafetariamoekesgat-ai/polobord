@@ -142,10 +142,16 @@ function split(b: Board, team: Team) {
 }
 
 /** Ken plekken toe met zo min mogelijk zwemwerk; wie over is, gaat eruit. */
-function fill(players: Piece[], spots: Vec[]): { at: Record<string, Vec>; spare: Piece[]; index: Record<string, number> } {
+/** Een linkshandige op een plek links van de aanvaller kost zoveel extra meters. */
+export const LEFTY_PENALTY = 6
+
+function fill(players: Piece[], spots: Vec[], lateral?: number[]): { at: Record<string, Vec>; spare: Piece[]; index: Record<string, number> } {
+  // linkshandigen naar de rechterkant (s > 0): daar staat hun werparm aan de goede kant
+  const extra = lateral ? (i: number, j: number) => (players[i].lefty && lateral[j] < -0.5 ? LEFTY_PENALTY : 0) : undefined
   const pick = assignMarks(
     players.map((p) => ({ id: p.id, pos: p })),
     spots.map((pos, i) => ({ id: String(i), pos })),
+    extra,
   )
   const at: Record<string, Vec> = {}
   const index: Record<string, number> = {}
@@ -178,7 +184,11 @@ export function computeFormation(b: Board, fm: Formation): FormationResult {
     // wie al uitgesloten is, blijft eruit als er meer spelers dan plekken zijn
     const surplus = Math.max(0, att.field.length - spots.length)
     const keepOut = att.field.filter((p) => p.excludedUntil != null).slice(0, surplus)
-    const { at, spare: spare0, index } = fill(att.field.filter((p) => !keepOut.includes(p)), spots)
+    const { at, spare: spare0, index } = fill(
+      att.field.filter((p) => !keepOut.includes(p)),
+      spots,
+      fm.attack.map(([, s]) => s),
+    )
     const spare = [...keepOut, ...spare0]
     for (const [id, pos] of Object.entries(at)) {
       res.targets[id] = pos
@@ -320,7 +330,7 @@ function special(b: Board, kind: 'start' | 'penalty' | 'counter', res: Formation
     [mid + 1.6, 5.4],
     [mid + 3.2, -0.4],
   ]
-  const at = fill(a.field, atk.map(([dd, s]) => fromAttack(A, f, dd, s)))
+  const at = fill(a.field, atk.map(([dd, s]) => fromAttack(A, f, dd, s)), atk.map(([, s]) => s))
   Object.assign(res.targets, at.at)
   for (const [id, i] of Object.entries(at.index)) res.roles[id] = atk[i][2]
   const dt = fill(d.field, chase.map(([dd, s]) => fromAttack(A, f, dd, s)))

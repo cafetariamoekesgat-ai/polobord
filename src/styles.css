@@ -469,7 +469,7 @@ select {
 }
 .tabs {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   border-bottom: 1px solid var(--line);
   flex: none;
 }
@@ -482,7 +482,7 @@ select {
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  font-size: 11.5px;
+  font-size: 10.5px;
   font-weight: 600;
   color: var(--ink-2);
   border-bottom: 3px solid transparent;
@@ -1173,4 +1173,235 @@ select {
 }
 .chip {
   white-space: nowrap;
+}
+
+.lefty-btn {
+  flex: none;
+  width: 48px;
+  min-height: 48px;
+  border-radius: 12px;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--ink-2);
+}
+.lefty-btn.on {
+  background: #ffd21f;
+  border-color: #d4a800;
+  color: #1b2a38;
+}
+
+/* ── Planner ───────────────────────────────────────────────────────────── */
+.plan-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.plan-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.plan-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.plan-no {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--active-bg);
+  color: var(--active-ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-head);
+  font-weight: 700;
+}
+.plan-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.plan-controls .stepper {
+  margin-right: auto;
+}
+.add-row {
+  display: flex;
+  gap: 6px;
+}
+.select.grow {
+  flex: 1;
+  max-width: none;
+  min-width: 0;
+}
+
+/* timer tijdens een training */
+.runner {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100% - 24px);
+  padding: 10px 12px 10px 16px;
+  border-radius: 20px;
+  background: #0b1822;
+  color: #fff;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  --surface-2: #1d3345;
+  --ink: #fff;
+  --active-bg: #ffc21a;
+  --active-ink: #1d1600;
+}
+.runner.done {
+  background: #6b1d12;
+}
+.runner-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.runner-info strong {
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.runner-info small {
+  opacity: 0.7;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.runner-time {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 40px;
+  font-variant-numeric: tabular-nums;
+  min-width: 96px;
+  text-align: center;
+}
+.runner-btns {
+  display: flex;
+  gap: 6px;
+}
+.app.presenting .runner {
+  left: calc(16px + env(safe-area-inset-left));
+  top: calc(16px + env(safe-area-inset-top));
+}
+
+/* ── Spelersquiz ───────────────────────────────────────────────────────── */
+.pq-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.pq-row-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.pq-row-main small {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.pq-card {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 9;
+  width: min(360px, calc(100% - 24px));
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pq-card.intro {
+  left: 50%;
+  top: 50%;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+}
+.pq-card h2 {
+  margin: 0;
+  font-family: var(--font-head);
+  font-size: 26px;
+  text-transform: uppercase;
+}
+.pq-card p {
+  margin: 0;
+  line-height: 1.4;
+}
+.pq-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--ink-2);
+}
+.pq-note {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 14px;
+}
+.portrait-hint {
+  display: none;
+}
+@media (orientation: portrait) {
+  .portrait-hint {
+    display: block;
+  }
+}
+/* quizmodus: de kaart krijgt een eigen kolom (liggend) of strook (staand),
+   zodat hij nooit over het bad valt */
+@media (orientation: landscape) {
+  .app.quiz-mode .stage {
+    right: min(300px, 36vw);
+  }
+  .app.quiz-mode .pq-card:not(.intro) {
+    left: auto;
+    right: 10px;
+    top: 10px;
+    bottom: auto;
+    width: calc(min(300px, 36vw) - 20px);
+    max-height: calc(100% - 20px);
+    overflow-y: auto;
+  }
+}
+@media (orientation: portrait) {
+  .app.quiz-mode .stage {
+    bottom: 200px;
+  }
+  .app.quiz-mode .pq-card:not(.intro) {
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    width: auto;
+  }
+}
+@media (max-height: 500px) {
+  .pq-card {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .pq-card .big-btn {
+    min-height: 48px;
+  }
 }

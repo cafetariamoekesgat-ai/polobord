@@ -15,6 +15,8 @@ export interface Piece {
   name?: string
   role: Role
   keeper: boolean
+  /** linkshandig: hoort bij voorkeur op de rechterkant van de aanval */
+  lefty?: boolean
   x: number
   y: number
   /** uitgesloten: tijdstip (ms, Date.now()) waarop de uitsluiting afloopt */
@@ -78,12 +80,41 @@ export interface Play {
 export interface SquadPlayer {
   num: number
   name: string
+  lefty?: boolean
 }
 
 export interface Squad {
   id: string
   name: string
   players: SquadPlayer[]
+}
+
+/** Een onderdeel van een training: een play uit de bibliotheek of een ingebouwde oefening. */
+export interface SessionItem {
+  id: string
+  /** 'play:<id>' of 'builtin:<id>' */
+  ref: string
+  minutes: number
+  note?: string
+}
+
+export interface Session {
+  id: string
+  name: string
+  items: SessionItem[]
+  updated: number
+}
+
+/** Een vraag van de spelersquiz: een bord en de speler die op zijn plek moet. */
+export interface QuizQuestion {
+  board: Board
+  pieceId: string
+  note?: string
+}
+
+export interface QuizSet {
+  title: string
+  questions: QuizQuestion[]
 }
 
 export const PLAY_CATEGORIES = [

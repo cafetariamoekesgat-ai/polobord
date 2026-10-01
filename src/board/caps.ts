@@ -39,6 +39,7 @@ export class PieceView {
   private warnOn = false
   private gloss: SVGEllipseElement
   private textGroup: SVGGElement
+  private leftyBadge: SVGGElement
   private lastKey = ''
   private lastTransform = ''
   private lastAngle = NaN
@@ -105,11 +106,12 @@ export class PieceView {
       this.exclGroup,
     )
     this.textGroup = tg
+    this.leftyBadge = el('g', {}, tg)
   }
 
   /** Opnieuw opbouwen als kleur, nummer, rol of naam verandert. */
   style(p: Piece, colors: CapColors, textFix: string, showNames: boolean) {
-    const key = `${p.team}|${p.keeper}|${p.num}|${p.name ?? ''}|${colors.white}|${colors.blue}|${textFix}|${showNames}`
+    const key = `${p.team}|${p.keeper}|${p.num}|${p.name ?? ''}|${!!p.lefty}|${colors.white}|${colors.blue}|${textFix}|${showNames}`
     if (key === this.lastKey) return
     this.lastKey = key
     const c = capPalette(p, colors)
@@ -132,6 +134,16 @@ export class PieceView {
     this.numText.textContent = String(p.num)
     setAttrs(this.numText, { fill: c.num, 'font-size': p.num >= 10 ? 0.98 : 1.1 })
     this.nameText.textContent = showNames && p.name ? p.name : ''
+    // linkshandig: geel "L"-plaatje rechtsboven op de cap
+    this.leftyBadge.replaceChildren()
+    if (p.lefty) {
+      el('circle', { cx: 0.78, cy: -0.78, r: 0.38, fill: '#ffd21f', stroke: '#1b2a38', 'stroke-width': 0.06 }, this.leftyBadge)
+      el(
+        'text',
+        { x: 0.78, y: -0.75, 'text-anchor': 'middle', 'dominant-baseline': 'central', 'font-family': FONT_NUM, 'font-weight': 700, 'font-size': 0.52, fill: '#1b2a38' },
+        this.leftyBadge,
+      ).textContent = 'L'
+    }
     this.lastAngle = NaN
   }
 

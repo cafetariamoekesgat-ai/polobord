@@ -39,7 +39,7 @@ export function TeamTab() {
         <Toggle label="Namen onder de caps" checked={s.showNames} onChange={(v) => updateSettings({ showNames: v })} />
       </Section>
 
-      <Section title="Selecties" hint="14 spelers met nummer en naam, bijvoorbeeld Heren 1 of Jeugd O16. Koppel ze aan wit of blauw.">
+      <Section title="Selecties" hint="14 spelers met nummer en naam, bijvoorbeeld Heren 1 of Jeugd O16. Koppel ze aan wit of blauw. Zet L aan voor linkshandigen: opstellingen zetten hen dan op de rechterkant.">
         {(['white', 'blue'] as Team[]).map((team) => (
           <div key={team} class="row-label">
             <span>{team === 'white' ? 'Wit' : 'Blauw'}</span>
@@ -127,6 +127,18 @@ function SquadEditor({ squad, onClose }: { squad: Squad; onClose: () => void }) 
                   set({ players })
                 }}
               />
+              <button
+                class={`lefty-btn${p.lefty ? ' on' : ''}`}
+                aria-pressed={!!p.lefty}
+                title="Linkshandig"
+                onClick={() => {
+                  const players = q.value.players.slice()
+                  players[i] = { ...p, lefty: !p.lefty }
+                  set({ players })
+                }}
+              >
+                L
+              </button>
             </div>
           ))}
         </div>
