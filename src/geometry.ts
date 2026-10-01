@@ -105,11 +105,11 @@ export type ZoneKind = 'M' | '2-3' | 'box'
 export const ZONE_BASE: Record<ZoneKind, [number, number][]> = {
   // M: benen op 2 m, pieken hoog, dip in het midden
   M: [
-    [1.6, -3.2],
+    [1.4, -3.3],
     [4.4, -2.4],
     [2.6, 0],
     [4.4, 2.4],
-    [1.6, 3.2],
+    [1.4, 3.3],
   ],
   '2-3': [
     [2.0, -3.2],
@@ -311,6 +311,38 @@ export function shotWindow(ball: Vec, goal: Vec, blockers: { pos: Vec; r: number
   if (cur < hi) open.push([cur, hi])
   const openLen = open.reduce((s, [a, b]) => s + (b - a), 0)
   return { open, blocked: merged, fraction: openLen / goalWidth, posts }
+}
+
+// ── Doelgebied (regel 1.7 / 8.10) ─────────────────────────────────────────
+
+/** Halve breedte van het doelgebied gemeten vanaf het midden van het doel. */
+export const goalAreaHalfWidth = () => RULES.goal.width / 2 + RULES.goalArea.besidePost
+
+/** Ligt punt p (in aanvalscoördinaten van `team`) in het doelgebied van de tegenstander? */
+export function inGoalArea(team: Team, f: FieldDims, p: Vec): boolean {
+  const { d, s } = toAttack(team, f, p)
+  return d >= 0 && d < RULES.goalArea.depth && Math.abs(s) < goalAreaHalfWidth()
+}
+
+/**
+ * Overtreding 8.10: in het doelgebied van de tegenstander liggen zonder bal,
+ * behalve achter de lijn van de bal (verder van de doellijn dan de bal).
+ */
+export function goalAreaFoul(team: Team, f: FieldDims, p: Vec, ball: Vec, hasBall: boolean): boolean {
+  if (hasBall || !inGoalArea(team, f, p)) return false
+  return toAttack(team, f, p).d < toAttack(team, f, ball).d
+}
+
+/**
+ * Maak een aanvalsplek legaal: een plek die bedoeld is naast het doelgebied
+ * (|s| ≥ rand) blijft ernaast, ook in een smal bad; anders net vóór de lijn.
+ */
+export function legalAttackSpot(team: Team, f: FieldDims, d: number, s: number): Vec {
+  const p = fromAttack(team, f, d, s)
+  if (!inGoalArea(team, f, p)) return p
+  const edge = goalAreaHalfWidth() + 0.25
+  if (Math.abs(s) >= goalAreaHalfWidth() && edge < f.width / 2 - 0.4) return fromAttack(team, f, d, Math.sign(s) * edge, false)
+  return fromAttack(team, f, RULES.goalArea.depth + 0.25, s)
 }
 
 // ── Hulpjes voor animatie en botsing ───────────────────────────────────────

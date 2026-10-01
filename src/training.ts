@@ -8,7 +8,7 @@
 import { signal } from '@preact/signals'
 import { defenseTargets, keeperTarget, type DefenseMode } from './defense'
 import { applyInstant, computeFormation, FORMATIONS, keeperHome, newId, reentrySpot } from './formations'
-import { attackGoal, clamp, dist, fromAttack, nearestFreeSpot, toAttack, v } from './geometry'
+import { attackGoal, clamp, dist, fromAttack, inGoalArea, legalAttackSpot, nearestFreeSpot, toAttack, v } from './geometry'
 import { autoDefense, commit, currentPlay, doc, freshBoard, getEngine, ghosts, isExcluded, playback, replaceBoard, setView, showToast } from './store'
 import type { BallState, Board, Frame, Piece, Stroke, Team, Vec } from './types'
 
@@ -113,6 +113,8 @@ interface SeqSpec {
   steps: SeqStep[]
   /** zwemlijnen tekenen voor aanvallers die flink verplaatsen */
   swimLines?: boolean
+  /** posities zijn bewust in het doelgebied, achter de lijn van de bal: niet corrigeren */
+  allowBehindBall?: boolean
 }
 
 function makePieces(spec: SeqSpec): { white: Piece[]; blue: Piece[]; wk: Piece | null; bk: Piece; exclBlue: Piece[] } {
@@ -134,8 +136,12 @@ function buildSequence(spec: SeqSpec): Board {
   for (const st of spec.steps) {
     const pos: Frame['pos'] = {}
     const excluded: Frame['excluded'] = {}
-    ps.white.forEach((p, i) => (pos[p.id] = fromAttack(A, F, st.a[i][0], st.a[i][1])))
     const holder = typeof st.ball === 'number' ? ps.white[st.ball] : null
+    // aanvallers zonder bal nooit in het doelgebied, tenzij achter de lijn van de bal (spec.allowBehindBall)
+    ps.white.forEach((p, i) => {
+      const [d, s2] = st.a[i]
+      pos[p.id] = p === holder || spec.allowBehindBall ? fromAttack(A, F, d, s2) : legalAttackSpot(A, F, d, s2)
+    })
     const ballPos = holder ? pos[holder.id] : fromAttack(A, F, (st.ball as P)[0], (st.ball as P)[1], false)
     if (st.d) ps.blue.forEach((p, i) => (pos[p.id] = fromAttack(A, F, st.d![i][0], st.d![i][1])))
     else {
@@ -214,18 +220,19 @@ function strokesFor(frames: Frame[], attackers: Piece[], swim: boolean): Stroke[
 
 // ── 1. Rotatietrainer 6-5 ─────────────────────────────────────────────────
 
+// zelfde plekken als de opstellingen: vleugels diep naast het doelgebied
 const PP42: P[] = [
-  [1.8, -4.2],
-  [1.9, -1.7],
-  [1.9, 1.7],
-  [1.8, 4.2],
+  [1.3, -4.3],
+  [2.4, -1.8],
+  [2.4, 1.8],
+  [1.3, 4.3],
   [5.3, -2.8],
   [5.3, 2.8],
 ]
 const PP33: P[] = [
-  [2, -3.8],
-  [2, 0],
-  [2, 3.8],
+  [1.5, -4.2],
+  [2.4, 0],
+  [1.5, 4.2],
   [5.6, -4.2],
   [6.3, 0],
   [5.6, 4.2],
@@ -345,6 +352,75 @@ export function startOverload(id: string, speed: number) {
   start(buildSequence(o.spec), { play: true, loop: true, speed })
 }
 
+// ── Doelgebied benutten (regel 1.7 / 8.10 / 13.3) ─────────────────────────
+
+export const GOAL_AREA_PLAYS: { id: string; label: string; point: string; spec: SeqSpec }[] = [
+  {
+    id: 'ga-deep-wing',
+    label: 'Diepe vleugel (6 tegen 5)',
+    point:
+      'Binnen de 2 m mag, zolang je náást het doelgebied ligt. De vleugel zakt diep (± 1 m van de doellijn) en krijgt de kruispass: kortere afstand en een betere hoek op de verre paal. De M-zone moet daarvoor ver uitzakken, wat ruimte geeft aan de flats.',
+    spec: {
+      nA: 6,
+      nD: 5,
+      exclD: 1,
+      mode: 'M',
+      swimLines: true,
+      steps: [
+        { a: PP42, ball: 4 },
+        { a: PP42.map((p, i) => (i === 0 ? ([0.9, -4.0] as P) : p)), ball: 5 },
+        { a: PP42.map((p, i) => (i === 0 ? ([0.9, -4.0] as P) : p)), ball: 0 },
+        { a: PP42.map((p, i) => (i === 0 ? ([0.9, -4.0] as P) : p)), ball: [0.3, 1.1] },
+      ],
+    },
+  },
+  {
+    id: 'ga-behind-ball',
+    label: 'Bal diep: het vak gaat open',
+    point:
+      'Met de bal mag je overal komen. Zwem de bal diep langs de rand van het doelgebied: wie dan verder van de doellijn ligt dan de bal (achter de lijn van de bal), mag het vak in. De center schuift in en krijgt de bal vlak voor het doel.',
+    spec: {
+      nA: 6,
+      nD: 6,
+      mode: 'man',
+      swimLines: true,
+      allowBehindBall: true,
+      steps: [
+        { a: [[1.8, -5], [2.3, 0], [1.8, 5], [6, -4.5], [7.5, 0], [6, 4.5]], ball: 2 },
+        { a: [[1.8, -5], [2.3, 0], [0.8, 3.9], [6, -4.5], [7, 0.5], [5.4, 4.2]], ball: 2 },
+        { a: [[1.8, -5], [1.4, 1.0], [0.8, 3.9], [6, -4.5], [7, 0.5], [5.4, 4.2]], ball: 2 },
+        { a: [[1.8, -5], [1.4, 1.0], [0.8, 3.9], [6, -4.5], [7, 0.5], [5.4, 4.2]], ball: 1 },
+        { a: [[1.8, -5], [1.4, 1.0], [0.8, 3.9], [6, -4.5], [7, 0.5], [5.4, 4.2]], ball: [0.3, -1.1] },
+      ],
+    },
+  },
+  {
+    id: 'ga-corner',
+    label: 'Hoekworp',
+    point:
+      'Bij een hoekworp mag geen aanvaller in het doelgebied liggen (13.3). Zet ze dus op de rand: de vleugel diep náást het vak, de center net vóór de 2 m-lijn. De snelle bal naar de diepe vleugel is meteen een kans.',
+    spec: {
+      nA: 6,
+      nD: 6,
+      mode: 'man',
+      swimLines: true,
+      steps: [
+        { a: [[2, 9], [2.4, -0.6], [1.2, 4.3], [4.6, 2.2], [6.6, -1], [5, -4.6]], ball: 0 },
+        { a: [[2, 9], [2.4, -0.6], [1.2, 4.3], [4.6, 2.2], [6.6, -1], [5, -4.6]], ball: 2 },
+        { a: [[2.6, 7.5], [2.4, -0.6], [1.2, 4.3], [4.2, 2.2], [6.6, -1], [5, -4.6]], ball: [0.3, -1.1] },
+      ],
+    },
+  },
+]
+
+export function startGoalAreaPlay(id: string, speed: number) {
+  const g = GOAL_AREA_PLAYS.find((x) => x.id === id)
+  if (!g) return
+  trainer.value = { ...trainer.value, kind: null }
+  start(buildSequence(g.spec), { play: true, loop: true, speed })
+  showToast(g.point, undefined, 12000)
+}
+
 // ── 5. Strafworp en start ────────────────────────────────────────────────
 
 function framesFromBoard(b: Board): Frame {
@@ -433,6 +509,7 @@ function randomSituation(level: Level): { b: Board; mode: DefenseMode; targets: 
       const d = clamp(base.d + rnd(-jitter, jitter), 1.3, 9)
       const s = base.s + rnd(-jitter, jitter)
       const q = fromAttack(A, F, d, s, false)
+      if (inGoalArea(A, F, q)) continue
       if (whites.every((o) => o === p || dist(o, q) > 2)) {
         p.x = q.x
         p.y = q.y

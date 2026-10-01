@@ -11,7 +11,7 @@ import barlow700 from '@fontsource/barlow-condensed/files/barlow-condensed-latin
 import { effect } from '@preact/signals'
 import { defenseTargets, keeperTarget } from '../defense'
 import { newId, reentrySpot } from '../formations'
-import { alongPolyline, attackGoal, clamp, dist, easeInOut, nearestFreeSpot, otherTeam, resolveCollisions, sub, unit, v } from '../geometry'
+import { alongPolyline, attackGoal, clamp, dist, easeInOut, goalAreaFoul, goalAreaHalfWidth, nearestFreeSpot, otherTeam, resolveCollisions, sub, unit, v } from '../geometry'
 import { RULES } from '../rules'
 import {
   autoDefense,
@@ -63,6 +63,8 @@ export class BoardEngine implements EngineApi {
   private gAnalysis: SVGGElement
   private gShot: SVGGElement
   private gGhost: SVGGElement
+  private gRule: SVGGElement
+  private lastFoulKey = ''
   private gPieces: SVGGElement
   private gBall: SVGGElement
   private gLive: SVGGElement
@@ -109,6 +111,7 @@ export class BoardEngine implements EngineApi {
     this.gStrokes = el('g', {}, this.world)
     this.gAnalysis = el('g', {}, this.world)
     this.gShot = el('g', {}, this.world)
+    this.gRule = el('g', {}, this.world)
     this.gGhost = el('g', {}, this.world)
     this.gPieces = el('g', {}, this.world)
     this.gBall = el('g', {}, this.world)
@@ -494,6 +497,7 @@ export class BoardEngine implements EngineApi {
       else pv.exclusion(Math.max(0, (excl - wall) / 1000), total)
     }
     this.ballView.place(this.ballDisp.x, this.ballDisp.y, this.r * 0.44, lift)
+    this.checkGoalArea()
 
     // analyse-lagen: bij beweging max ~30× per seconde
     const anyLayer = layers.value.passes || layers.value.shot || layers.value.voronoi
@@ -510,6 +514,39 @@ export class BoardEngine implements EngineApi {
     if (anyLayer && active) this.overlaysDirty = true
 
     if (active || this.overlaysDirty) this.kick()
+  }
+
+  /**
+   * Doelgebied-controle (regel 8.10): een speler zonder bal in het doelgebied
+   * van de tegenstander, niet achter de lijn van de bal, krijgt een oranje ring
+   * en het vak kleurt rood.
+   */
+  private checkGoalArea() {
+    const b = this.board
+    const on = layers.value.goalArea
+    const holder = this.playOverride ? this.holderAt(this.ballDisp) : b.ball.holder
+    const f = { length: b.field.length, width: b.field.width }
+    const fouls: Piece[] = []
+    for (const p of b.pieces) {
+      const pv = this.views.get(p.id)
+      const d = this.disp.get(p.id)
+      if (!pv || !d) continue
+      const foul = on && !p.keeper && this.inPlay(p.id) && goalAreaFoul(p.team, f, d, this.ballDisp, holder === p.id)
+      pv.warn(foul)
+      if (foul) fouls.push(p)
+    }
+    const teams = [...new Set(fouls.map((p) => p.team))]
+    const key = teams.join(',')
+    if (key === this.lastFoulKey) return
+    this.lastFoulKey = key
+    this.gRule.replaceChildren()
+    const ga = RULES.goalArea
+    const half = goalAreaHalfWidth()
+    for (const t of teams) {
+      const g = attackGoal(t, f)
+      const x0 = g.x === 0 ? 0 : g.x - ga.depth
+      el('rect', { x: x0, y: g.y - half, width: ga.depth, height: half * 2, fill: 'rgba(234,58,54,0.28)', stroke: '#ea3a36', 'stroke-width': 0.1 }, this.gRule)
+    }
   }
 
   private heldBallPos(id: string): Vec {

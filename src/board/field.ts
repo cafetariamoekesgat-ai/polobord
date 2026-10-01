@@ -137,7 +137,8 @@ export function drawField(g: SVGGElement, f: FieldSize, theme: FieldTheme, textF
     )
   }
 
-  // gebied rond het doel: gestippelde rechthoek, 2 m naast elke paal tot de 2 m-lijn
+  // doelgebied (regel 1.7): gestippelde rechthoek, 2 m naast elke paal tot de 2 m-lijn;
+  // de grenslijnen zijn officieel rood gemarkeerd
   const ga = RULES.goalArea
   const gaLo = Math.max(0, W / 2 - RULES.goal.width / 2 - ga.besidePost)
   const gaHi = Math.min(W, W / 2 + RULES.goal.width / 2 + ga.besidePost)
@@ -149,10 +150,10 @@ export function drawField(g: SVGGElement, f: FieldSize, theme: FieldTheme, textF
       {
         d: `M${gx} ${gaLo} L${fx} ${gaLo} L${fx} ${gaHi} L${gx} ${gaHi}`,
         fill: 'none',
-        stroke: LINE.white,
-        'stroke-width': 0.06,
-        'stroke-dasharray': '0.22 0.2',
-        opacity: 0.85,
+        stroke: LINE.red,
+        'stroke-width': 0.08,
+        'stroke-dasharray': '0.24 0.18',
+        opacity: 0.95,
       },
       g,
     )

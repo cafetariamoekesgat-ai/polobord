@@ -4,7 +4,7 @@
  * Zijwaartse maten gelden voor een 20 m breed bad en schalen mee.
  */
 import { defenseTargets, keeperTarget, type DefenseMode } from './defense'
-import { assignMarks, attackGoal, fromAttack, otherTeam, ownGoal, v } from './geometry'
+import { assignMarks, attackGoal, fromAttack, legalAttackSpot, otherTeam, ownGoal, v } from './geometry'
 import { RULES } from './rules'
 import type { BallState, Board, Piece, Role, Team, Vec } from './types'
 
@@ -27,18 +27,21 @@ export interface Formation {
   special?: 'start' | 'penalty' | 'counter'
 }
 
+// Doelgebied (sinds 2023): 2 m naast elke paal tot de 2 m-lijn. Aanvallers zonder
+// bal liggen erbuiten: de center net vóór de lijn (2,3 m), vleugels mogen dieper
+// dan 2 m zolang ze er naast liggen (|s| > 3,5 m).
 const THREE_THREE: Spot[] = [
-  [2, -5, 'wing'],
-  [2, 0, 'center'],
-  [2, 5, 'wing'],
+  [1.8, -5, 'wing'],
+  [2.3, 0, 'center'],
+  [1.8, 5, 'wing'],
   [6, -4.5, 'flat'],
   [7.5, 0, 'point'],
   [6, 4.5, 'flat'],
 ]
 
 const FOUR_TWO: Spot[] = [
-  [2, -0.8, 'center'],
-  [2.3, 3.4, 'driver'],
+  [2.3, -0.8, 'center'],
+  [2.4, 3.4, 'driver'],
   [5.2, -5.2, 'wing'],
   [7, -2, 'point'],
   [7, 2.2, 'flat'],
@@ -46,7 +49,7 @@ const FOUR_TWO: Spot[] = [
 ]
 
 const ARC: Spot[] = [
-  [2, 0, 'center'],
+  [2.3, 0, 'center'],
   [2, -6.6, 'wing'],
   [5.4, -4.4, 'flat'],
   [7, 0, 'point'],
@@ -54,27 +57,28 @@ const ARC: Spot[] = [
   [2, 6.6, 'wing'],
 ]
 
+// 4-2 met de doelgebied-regel: palen vóór de lijn, vleugels diep naast het vak
 const PP_42: Spot[] = [
-  [1.8, -4.2, 'wing'],
-  [1.9, -1.7, 'center'],
-  [1.9, 1.7, 'center'],
-  [1.8, 4.2, 'wing'],
+  [1.3, -4.3, 'wing'],
+  [2.4, -1.8, 'center'],
+  [2.4, 1.8, 'center'],
+  [1.3, 4.3, 'wing'],
   [5.3, -2.8, 'flat'],
   [5.3, 2.8, 'flat'],
 ]
 
 const PP_33: Spot[] = [
-  [2, -3.8, 'wing'],
-  [2, 0, 'center'],
-  [2, 3.8, 'wing'],
+  [1.5, -4.2, 'wing'],
+  [2.4, 0, 'center'],
+  [1.5, 4.2, 'wing'],
   [5.6, -4.2, 'flat'],
   [6.3, 0, 'point'],
   [5.6, 4.2, 'flat'],
 ]
 
 const FIVE_FOUR: Spot[] = [
-  [2, -2.6, 'wing'],
-  [2, 2.6, 'wing'],
+  [1.4, -4.2, 'wing'],
+  [1.4, 4.2, 'wing'],
   [5, -4.2, 'flat'],
   [6.5, 0, 'point'],
   [5, 4.2, 'flat'],
@@ -170,7 +174,7 @@ export function computeFormation(b: Board, fm: Formation): FormationResult {
   // ── aanvallers
   let attackPos: { id: string; pos: Vec }[]
   if (fm.attack) {
-    const spots = fm.attack.map(([d, s]) => fromAttack(A, f, d, s))
+    const spots = fm.attack.map(([d, s]) => legalAttackSpot(A, f, d, s))
     // wie al uitgesloten is, blijft eruit als er meer spelers dan plekken zijn
     const surplus = Math.max(0, att.field.length - spots.length)
     const keepOut = att.field.filter((p) => p.excludedUntil != null).slice(0, surplus)

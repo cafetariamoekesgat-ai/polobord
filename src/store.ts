@@ -57,7 +57,7 @@ export const tool = signal<Tool>('move')
 export const lineKind = signal<LineKind>('swim')
 export const drawColor = signal<string>('#ffffff')
 export const view = signal<ViewState>({ half: false, rotated: false, mirrored: false })
-export const layers = signal({ passes: false, shot: false, voronoi: false })
+export const layers = signal({ passes: false, shot: false, voronoi: false, goalArea: true })
 export const autoDefense = signal<{ enabled: boolean; mode: DefenseMode; keeper: boolean }>({ enabled: false, mode: 'man', keeper: true })
 export const presentation = signal(false)
 export const locked = signal(false)
@@ -688,6 +688,8 @@ export async function hydrate() {
       lastSnapshot = JSON.stringify(doc.board)
     }
     if (v) view.value = v
+    const l = await db.kvGet<Partial<typeof layers.value>>('layers')
+    if (l) layers.value = { ...layers.value, ...l }
     if (ts) teamSquad.value = ts
     plays.value = ps
     squads.value = qs.sort((a, c) => a.name.localeCompare(c.name))

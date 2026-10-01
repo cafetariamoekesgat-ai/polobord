@@ -9,6 +9,8 @@ import {
   OVERLOADS,
   revealQuiz,
   ROTATIONS,
+  GOAL_AREA_PLAYS,
+  startGoalAreaPlay,
   showScenario,
   startOverload,
   startPenalty,
@@ -53,6 +55,18 @@ export function TrainingTab() {
           <button key={r.id} class="big-btn wide train-btn" onClick={() => startRotation(r.id, speed())}>
             <strong>{r.label}</strong>
             <small>{r.hint}</small>
+          </button>
+        ))}
+      </Section>
+
+      <Section
+        title="Doelgebied benutten"
+        hint="Sinds 2023 geldt de 2 m-regel alleen nog in het doelgebied (2 m naast elke paal tot de 2 m-lijn). Zo gebruik je de ruimte eromheen."
+      >
+        {GOAL_AREA_PLAYS.map((g) => (
+          <button key={g.id} class="big-btn wide train-btn" onClick={() => startGoalAreaPlay(g.id, speed())}>
+            <strong>{g.label}</strong>
+            <small>{g.point}</small>
           </button>
         ))}
       </Section>

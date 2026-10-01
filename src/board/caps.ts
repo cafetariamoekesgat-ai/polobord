@@ -35,6 +35,8 @@ export class PieceView {
   private exclText: SVGTextElement
   private exclGroup: SVGGElement
   private hilite: SVGCircleElement
+  private warnRing: SVGCircleElement
+  private warnOn = false
   private gloss: SVGEllipseElement
   private textGroup: SVGGElement
   private lastKey = ''
@@ -50,6 +52,11 @@ export class PieceView {
     // schaduw
     el('circle', { cx: 0.08, cy: 0.12, r: 1.04, fill: 'rgba(0,18,36,0.3)' }, this.g)
     this.hilite = el('circle', { r: 1.36, fill: 'none', stroke: '#ffd21f', 'stroke-width': 0.16, opacity: 0 }, this.g)
+    this.warnRing = el(
+      'circle',
+      { r: 1.32, fill: 'rgba(255,120,0,0.18)', stroke: '#ff7a00', 'stroke-width': 0.2, 'stroke-dasharray': '0.35 0.2', opacity: 0 },
+      this.g,
+    )
     this.rot = el('g', {}, this.g)
     this.gloss = el('ellipse', { cx: -0.28, cy: -0.34, rx: 0.42, ry: 0.26, fill: '#ffffff', transform: 'rotate(-30)' }, this.g)
     this.exclGroup = el('g', { opacity: 0 }, this.g)
@@ -140,6 +147,13 @@ export class PieceView {
     if (Math.abs(angleDeg - this.lastAngle) < 1.5) return
     this.lastAngle = angleDeg
     this.rot.setAttribute('transform', `rotate(${Math.round(angleDeg)})`)
+  }
+
+  /** Oranje ring: deze speler ligt zonder bal in het doelgebied (regel 8.10). */
+  warn(on: boolean) {
+    if (on === this.warnOn) return
+    this.warnOn = on
+    this.warnRing.setAttribute('opacity', on ? '1' : '0')
   }
 
   highlight(on: boolean) {
